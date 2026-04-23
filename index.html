@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>回魂計算工具</title>
+    <script src="https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #d4af37;
+            --bg-color: #f4f6f8;
+            --text-color: #333;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'PingFang HK', 'Microsoft JhengHei', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            color: var(--text-color);
+            min-height: 100vh;
+        }
+        
+        /* 密碼鎖畫面樣式 */
+        #loginOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--primary-color);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            color: white;
+        }
+        .login-box {
+            background: white;
+            padding: 35px 30px;
+            border-radius: 12px;
+            text-align: center;
+            color: #333;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            width: 80%;
+            max-width: 300px;
+        }
+        .login-box h3 { margin-top: 0; font-size: 20px; color: var(--primary-color); }
+        .login-box input {
+            width: 100%;
+            padding: 12px;
+            text-align: center;
+            letter-spacing: 3px;
+            font-size: 18px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        .login-box input:focus { outline: none; border-color: var(--accent-color); }
+        .login-box button { margin-top: 5px; }
+        
+        /* 應用主體樣式 */
+        .calculator-container {
+            background: #fff;
+            padding: 25px 20px;
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+            width: 100%;
+            max-width: 450px;
+            display: none; /* 初始隱藏，登入後顯示 */
+            align-self: flex-start;
+            margin-top: 20px;
+        }
+        h2 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-top: 0;
+            margin-bottom: 25px;
+            font-size: 22px;
+            font-weight: 600;
+            border-bottom: 2px solid #eaeaea;
+            padding-bottom: 15px;
+        }
+        .form-group { margin-bottom: 18px; }
+        label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 14px; color: #555; }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 16px; 
+            background-color: #fafafa;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus { outline: none; border-color: var(--primary-color); background-color: #fff; }
+        .time-hint { font-size: 12px; color: #888; margin-top: 4px; }
+        
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--primary-color);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        button:active { transform: scale(0.98); }
+        button:hover { background-color: #1a252f; }
+        
+        .btn-copy { background-color: var(--accent-color); margin-top: 15px; }
+        .btn-copy:hover { background-color: #c5a030; }
+        
+        .result-box {
+            margin-top: 25px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent-color);
+            display: none;
+            white-space: pre-wrap;
+            font-size: 15px;
+            line-height: 1.8;
+            color: #222;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+
+<div id="loginOverlay">
+    <div class="login-box">
+        <h3>內部工具登入</h3>
+        <p style="font-size: 13px; color: #666; margin-top:-5px; margin-bottom: 20px;">請輸入訪問密碼</p>
+        <input type="password" id="accessCode" placeholder="••••">
+        <button onclick="checkAccess()">進入系統</button>
+        <p id="loginError" style="color: #e74c3c; font-size: 14px; display: none; margin-bottom:0; margin-top:10px;">密碼錯誤，請重試</p>
+    </div>
+</div>
+
+<div class="calculator-container" id="mainApp">
+    <h2>傳統回魂計算器</h2>
+    
+    <div class="form-group">
+        <label>先人姓名 (含稱謂)：</label>
+        <input type="text" id="deceasedName" placeholder="例如：陳心心小姐">
+    </div>
+
+    <div class="form-group">
+        <label>性別 (用於計算六道)：</label>
+        <select id="gender">
+            <option value="F">女</option>
+            <option value="M">男</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label>籍貫：</label>
+        <input type="text" id="origin" placeholder="例如：廣東 惠東">
+    </div>
+    
+    <div class="form-group">
+        <label style="display: flex; justify-content: space-between; align-items: center;">
+            <span>出生日期與時間 (新曆)：</span>
+            <label for="onlyBirthYear" style="margin-bottom: 0; font-weight: normal; font-size: 13px; cursor: pointer; color: #007bff;">
+                <input type="checkbox" id="onlyBirthYear" onchange="toggleBirthInput()"> 僅知年份
+            </label>
+        </label>
+        
+        <div id="fullBirthDateWrapper" style="display: flex; gap: 10px;">
+            <input type="date" id="birthDate" style="flex: 2;">
+            <input type="time" id="birthTime" style="flex: 1;">
+        </div>
+        
+        <input type="number" id="birthYearOnly" placeholder="請輸入出生年份 (例如：1977)" style="display:none;">
+        <div class="time-hint" id="birthTimeHint">＊若不選擇時間，將顯示為「吉時」</div>
+    </div>
+    
+    <div class="form-group">
+        <label>離世日期與時間 (新曆)：</label>
+        <div style="display: flex; gap: 10px;">
+            <input type="date" id="deathDate" style="flex: 2;">
+            <input type="time" id="deathTime" style="flex: 1;">
+        </div>
+        <div class="time-hint">＊若不選擇時間，則不顯示時辰</div>
+    </div>
+
+    <button onclick="calculateReturn()" style="margin-top: 20px;">計算結果</button>
+    
+    <div class="result-box" id="resultBox"></div>
+    <button class="btn-copy" id="copyBtn" style="display:none;" onclick="copyResult()">一鍵複製結果</button>
+</div>
+
+<script>
+    // ==========================================
+    // 登入驗證邏輯
+    // ==========================================
+    function checkAccess() {
+        const code = document.getElementById('accessCode').value;
+        const correctPassword = "8888"; // <-- 這裡可以隨時更改你的專屬密碼
+        
+        if (code === correctPassword) {
+            document.getElementById('loginOverlay').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+            document.getElementById('accessCode').value = ''; // 清空密碼框
+        } else {
+            document.getElementById('loginError').style.display = 'block';
+            document.getElementById('accessCode').value = '';
+        }
+    }
+
+    // 支援按 Enter 鍵登入
+    document.getElementById("accessCode").addEventListener("keyup", function(event) {
+        if (event.key === "Enter") {
+            checkAccess();
+        }
+    });
+
+    // ==========================================
+    // 計算核心邏輯
+    // ==========================================
+    
+    // 天干地支對應數值表
+    const valueMap = {
+        '甲': 9, '己': 9, '子': 9, '午': 9,
+        '乙': 8, '庚': 8, '丑': 8, '未': 8,
+        '丙': 7, '辛': 7, '寅': 7, '申': 7,
+        '丁': 6, '壬': 6, '卯': 6, '酉': 6,
+        '戊': 5, '癸': 5, '辰': 5, '戌': 5,
+        '巳': 4, '亥': 4
+    };
+
+    const numToChinese = {
+        1:'一', 2:'二', 3:'三', 4:'四', 5:'五', 6:'六', 7:'七', 8:'八', 9:'九', 10:'十', 
+        11:'十一', 12:'十二', 13:'十三', 14:'十四', 15:'十五', 16:'十六', 17:'十七', 18:'十八'
+    };
+    
+    function ageToChinese(age) {
+        if(age <= 10) return numToChinese[age] || age;
+        if(age < 20) return "十" + (age%10 === 0 ? "" : numToChinese[age%10]);
+        let ten = Math.floor(age/10);
+        let digit = age % 10;
+        return numToChinese[ten] + "十" + (digit === 0 ? "" : numToChinese[digit]);
+    }
+
+    function calculateSixRealms(gender, age) {
+        let remainder = age % 6;
+        if (remainder === 0) remainder = 6;
+        if (gender === 'M') {
+            const maleRealms = { 1: '天', 2: '地', 3: '人', 4: '佛', 5: '鬼', 6: '畜' };
+            return maleRealms[remainder] + '道';
+        } else {
+            const femaleRealms = { 1: '佛', 2: '人', 3: '地', 4: '天', 5: '畜', 6: '鬼' };
+            return femaleRealms[remainder] + '道';
+        }
+    }
+
+    function toggleBirthInput() {
+        const isOnlyYear = document.getElementById('onlyBirthYear').checked;
+        if (isOnlyYear) {
+            document.getElementById('fullBirthDateWrapper').style.display = 'none';
+            document.getElementById('birthYearOnly').style.display = 'block';
+            document.getElementById('birthTimeHint').style.display = 'none';
+        } else {
+            document.getElementById('fullBirthDateWrapper').style.display = 'flex';
+            document.getElementById('birthYearOnly').style.display = 'none';
+            document.getElementById('birthTimeHint').style.display = 'block';
+        }
+    }
+
+    function calculateReturn() {
+        const name = document.getElementById('deceasedName').value.trim() || '未填寫';
+        const gender = document.getElementById('gender').value;
+        const genderStr = gender === 'M' ? '男' : '女';
+        const origin = document.getElementById('origin').value.trim() || '未填寫';
+        
+        const deathDateInput = document.getElementById('deathDate').value;
+        const deathTimeInput = document.getElementById('deathTime').value;
+
+        if (!deathDateInput) {
+            alert("請填寫離世「日期」！");
+            return;
+        }
+
+        const deathDateStr = deathTimeInput ? `${deathDateInput}T${deathTimeInput}` : `${deathDateInput}T00:00`;
+        const deathDateObj = new Date(deathDateStr);
+        const deathLunar = Lunar.fromDate(deathDateObj);
+
+        const isOnlyBirthYear = document.getElementById('onlyBirthYear').checked;
+        let age, zodiac, birthStr;
+
+        if (isOnlyBirthYear) {
+            const birthYearInput = document.getElementById('birthYearOnly').value;
+            if (!birthYearInput) {
+                alert("請填寫出生年份！");
+                return;
+            }
+            const bYear = parseInt(birthYearInput);
+            age = deathDateObj.getFullYear() - bYear + 1;
+            
+            const dummyLunar = Lunar.fromDate(new Date(bYear, 5, 15));
+            zodiac = dummyLunar.getYearShengXiao();
+            birthStr = `${dummyLunar.getYearInGanZhi()}年（詳細月日時辰不詳）`;
+            
+        } else {
+            const birthDateInput = document.getElementById('birthDate').value;
+            const birthTimeInput = document.getElementById('birthTime').value;
+            
+            if (!birthDateInput) {
+                alert("請完整填寫出生「日期」或勾選「僅知年份」！");
+                return;
+            }
+            
+            const birthDateStr = birthTimeInput ? `${birthDateInput}T${birthTimeInput}` : `${birthDateInput}T00:00`;
+            const birthDateObj = new Date(birthDateStr);
+            const birthLunar = Lunar.fromDate(birthDateObj);
+            
+            age = deathDateObj.getFullYear() - birthDateObj.getFullYear() + 1;
+            zodiac = birthLunar.getYearShengXiao();
+            
+            const birthTimeStr = birthTimeInput ? birthLunar.getTimeZhi() + '時' : "吉時";
+            birthStr = `${birthLunar.getYearInGanZhi()}年${birthLunar.getMonthInChinese()}月${birthLunar.getDayInChinese()}日${birthTimeStr}`;
+        }
+
+        // 強制繁體生肖
+        zodiac = zodiac.replace('龙', '龍').replace('马', '馬').replace('鸡', '雞').replace('猪', '豬');
+
+        const sixRealmsStr = calculateSixRealms(gender, age);
+
+        const deathDayGan = deathLunar.getDayGan();
+        const deathDayZhi = deathLunar.getDayZhi();
+        const ganValue = valueMap[deathDayGan] || 0;
+        const zhiValue = valueMap[deathDayZhi] || 0;
+        const totalDays = ganValue + zhiValue;
+
+        const zhang = Math.floor(totalDays / 10);
+        const chi = totalDays % 10;
+        let heightStr = "";
+        if (zhang > 0) heightStr += numToChinese[zhang] + "丈";
+        if (chi > 0) heightStr += numToChinese[chi];
+        
+        const returnDateObj = new Date(deathDateObj);
+        returnDateObj.setDate(returnDateObj.getDate() + (totalDays - 1));
+        const returnLunar = Lunar.fromDate(returnDateObj);
+
+        const worshipDateObj = new Date(returnDateObj);
+        worshipDateObj.setDate(worshipDateObj.getDate() - 1);
+
+        // 取得回魂日納音五行方位
+        const returnDayNaYin = returnLunar.getDayNaYin(); 
+        const returnDayWuXing = returnDayNaYin.charAt(returnDayNaYin.length - 1); 
+        
+        let directionStr = "";
+        if (['土', '水', '木'].includes(returnDayWuXing)) {
+            directionStr = "寅東卯西（淩晨03:00-凌晨07:00）";
+        } else if (returnDayWuXing === '金') {
+            directionStr = "子東丑西（23:00-03:00）";
+        } else if (returnDayWuXing === '火') {
+            directionStr = "子南丑北（23:00-03:00）";
+        }
+
+        const deathTimeStr = deathTimeInput ? deathLunar.getTimeZhi() + '時' : "";
+        const deathStr = `${deathLunar.getYearInGanZhi()}年${deathLunar.getMonthInChinese()}月${deathLunar.getDayInChinese()}日${deathTimeStr}`;
+
+        const finalText = 
+`先人名：${name}（${genderStr}）
+藉貫：${origin}
+年歳：${ageToChinese(age)}歲
+生肖：屬${zodiac}
+六道：${sixRealmsStr}
+丈高：${heightStr}（${deathDayGan}${deathDayZhi}日）
+回魂：新曆${returnDateObj.getMonth()+1}月${returnDateObj.getDate()}日
+　　　農曆${returnLunar.getMonthInChinese()}月${returnLunar.getDayInChinese()}日
+拜回魂：（${returnDayWuXing}日）
+${worshipDateObj.getMonth()+1}月${worshipDateObj.getDate()}日晚上
+23:00前拜好回魂祭品拜回魂🙏
+${directionStr}
+生於：${birthStr}。
+終於：${deathStr}。`;
+
+        const resultBox = document.getElementById('resultBox');
+        resultBox.textContent = finalText;
+        resultBox.style.display = 'block';
+        document.getElementById('copyBtn').style.display = 'block';
+        
+        // 平滑滾動到結果
+        setTimeout(() => {
+            resultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 100);
+    }
+
+    // ==========================================
+    // 複製結果功能
+    // ==========================================
+    function copyResult() {
+        const text = document.getElementById('resultBox').textContent;
+        // 兼容手機端複製
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            alert("✅ 結果已成功複製！可以貼上到 WhatsApp 了。");
+        } catch (err) {
+            alert("❌ 複製失敗，請手動選取文字複製。");
+        }
+        document.body.removeChild(textArea);
+    }
+</script>
+
+</body>
+</html>
