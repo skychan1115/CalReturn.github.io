@@ -244,12 +244,10 @@
     // 頁面初始化載入
     // ==========================================
     document.addEventListener("DOMContentLoaded", function() {
-        // 自動生成農曆日子下拉選單 (初一至三十)
         const lunarDaySelect = document.getElementById('lunarDay');
         const lunarDays = ['初一','初二','初三','初四','初五','初六','初七','初八','初九','初十',
             '十一','十二','十三','十四','十五','十六','十七','十八','十九','二十',
-            '廿一','廿二','廿三','廿四','廿5','廿六','廿七','廿八','廿九','三十']; // 修正顯示字眼
-        lunarDays[24] = '廿五'; // 確保中文字正確
+            '廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
         lunarDays.forEach((d, i) => {
             const option = document.createElement('option');
             option.value = i + 1;
@@ -318,7 +316,6 @@
         }
     }
 
-    // 準確計算時辰 (解決邊界問題：剛好 01:00 為子時，01:01 為丑時)
     function getZhiFromTime(timeString) {
         if (!timeString) return "吉";
         const parts = timeString.split(':');
@@ -326,24 +323,22 @@
         const m = parseInt(parts[1], 10);
         const totalMinutes = h * 60 + m;
 
-        // 包含整點 01:00 (60分鐘) 為子，01:01 開始為丑
-        if (totalMinutes >= 1380 || totalMinutes <= 60) return "子";  // 23:00 - 01:00
-        if (totalMinutes > 60 && totalMinutes <= 180) return "丑";   // 01:01 - 03:00
-        if (totalMinutes > 180 && totalMinutes <= 300) return "寅";  // 03:01 - 05:00
-        if (totalMinutes > 300 && totalMinutes <= 420) return "卯";  // 05:01 - 07:00
-        if (totalMinutes > 420 && totalMinutes <= 540) return "辰";  // 07:01 - 09:00
-        if (totalMinutes > 540 && totalMinutes <= 660) return "巳";  // 09:01 - 11:00
-        if (totalMinutes > 660 && totalMinutes <= 780) return "午";  // 11:01 - 13:00
-        if (totalMinutes > 780 && totalMinutes <= 900) return "未";  // 13:01 - 15:00
-        if (totalMinutes > 900 && totalMinutes <= 1020) return "申"; // 15:01 - 17:00
-        if (totalMinutes > 1020 && totalMinutes <= 1140) return "酉"; // 17:01 - 19:00
-        if (totalMinutes > 1140 && totalMinutes <= 1260) return "戌"; // 19:01 - 21:00
-        if (totalMinutes > 1260 && totalMinutes < 1380) return "亥";  // 21:01 - 22:59
+        if (totalMinutes >= 1380 || totalMinutes <= 59) return "子";  // 23:00 - 00:59
+        if (totalMinutes >= 60 && totalMinutes <= 179) return "丑";   // 01:00 - 02:59
+        if (totalMinutes >= 180 && totalMinutes <= 299) return "寅";  // 03:00 - 04:59
+        if (totalMinutes >= 300 && totalMinutes <= 419) return "卯";  // 05:00 - 06:59
+        if (totalMinutes >= 420 && totalMinutes <= 539) return "辰";  // 07:00 - 08:59
+        if (totalMinutes >= 540 && totalMinutes <= 659) return "巳";  // 09:00 - 10:59
+        if (totalMinutes >= 660 && totalMinutes <= 779) return "午";  // 11:00 - 12:59
+        if (totalMinutes >= 780 && totalMinutes <= 899) return "未";  // 13:00 - 14:59
+        if (totalMinutes >= 900 && totalMinutes <= 1019) return "申"; // 15:00 - 16:59
+        if (totalMinutes >= 1020 && totalMinutes <= 1139) return "酉"; // 17:00 - 18:59
+        if (totalMinutes >= 1140 && totalMinutes <= 1259) return "戌"; // 19:00 - 20:59
+        if (totalMinutes >= 1260 && totalMinutes <= 1379) return "亥"; // 21:00 - 22:59
 
         return "吉";
     }
 
-    // 切換出生日期輸入介面
     function toggleBirthInput() {
         const type = document.getElementById('birthDateType').value;
         
@@ -351,7 +346,6 @@
         document.getElementById('lunarBirthWrapper').style.display = type === 'lunar' ? 'flex' : 'none';
         document.getElementById('birthYearOnly').style.display = type === 'yearOnly' ? 'block' : 'none';
         
-        // 僅知年份時隱藏吉時提示
         document.getElementById('birthTimeHint').style.display = type === 'yearOnly' ? 'none' : 'block';
     }
 
@@ -369,7 +363,6 @@
             return;
         }
 
-        // 避免不同瀏覽器解析日期字串時產生時區漂移，手動帶入本地時間
         const [dYear, dMonth, dDay] = deathDateInput.split('-');
         let dHours = 0, dMinutes = 0;
         if (deathTimeInput) {
@@ -380,26 +373,26 @@
         const deathDateObj = new Date(dYear, dMonth - 1, dDay, dHours, dMinutes);
         const deathLunar = Lunar.fromDate(deathDateObj);
 
-        // 1. 出生資料處理 (根據所選類型)
+        // 1. 出生資料處理
         const birthDateType = document.getElementById('birthDateType').value;
         let age, zodiac, birthStr;
 
         if (birthDateType === 'yearOnly') {
-            // 【模式一】僅知年份
             const birthYearInput = document.getElementById('birthYearOnly').value;
             if (!birthYearInput) {
                 alert("請填寫出生年份！");
                 return;
             }
             const bYear = parseInt(birthYearInput);
-            age = deathDateObj.getFullYear() - bYear + 1;
             
             const dummyLunar = Lunar.fromDate(new Date(bYear, 5, 15));
+            // ★ 修正：使用農曆年份計算虛歲，解決新年前後的歲數誤差
+            age = deathLunar.getYear() - dummyLunar.getYear() + 1;
+            
             zodiac = dummyLunar.getYearShengXiao();
             birthStr = `${dummyLunar.getYearInGanZhi()}年（詳細月日時辰不詳）`;
             
         } else if (birthDateType === 'solar') {
-            // 【模式二】新曆
             const birthDateInput = document.getElementById('birthDate').value;
             const birthTimeInput = document.getElementById('birthTime').value;
             
@@ -418,15 +411,15 @@
             const birthDateObj = new Date(bYear, bMonth - 1, bDay, bHours, bMinutes);
             const birthLunar = Lunar.fromDate(birthDateObj);
             
-            age = deathDateObj.getFullYear() - birthDateObj.getFullYear() + 1;
+            // ★ 修正：使用農曆年份計算虛歲，解決新年前後的歲數誤差
+            age = deathLunar.getYear() - birthLunar.getYear() + 1;
             zodiac = birthLunar.getYearShengXiao();
             
-            // 使用自訂的 getZhiFromTime 確保時辰絕對對應鐘數
             const birthTimeStr = birthTimeInput ? getZhiFromTime(birthTimeInput) + '時' : "吉時";
+            // 還原為預設直接取用
             birthStr = `${birthLunar.getYearInGanZhi()}年${birthLunar.getMonthInChinese()}月${birthLunar.getDayInChinese()}日${birthTimeStr}`;
             
         } else if (birthDateType === 'lunar') {
-            // 【模式三】農曆直入
             const lYear = document.getElementById('lunarYear').value;
             const lMonth = document.getElementById('lunarMonth').value;
             const lDay = document.getElementById('lunarDay').value;
@@ -440,25 +433,21 @@
 
             const y = parseInt(lYear);
             let m = parseInt(lMonth);
-            // Lunar.js 中閏月以負數表示
             if (isLeap) m = -m; 
             const d = parseInt(lDay);
 
             try {
-                // 建立農曆對象
                 const birthLunar = Lunar.fromYmd(y, m, d);
-                // 轉換為新曆對象以計算時辰
-                const solar = birthLunar.getSolar();
-                
-                age = deathDateObj.getFullYear() - y + 1;
+                // ★ 修正：使用農曆年份計算虛歲，解決新年前後的歲數誤差
+                age = deathLunar.getYear() - birthLunar.getYear() + 1;
                 zodiac = birthLunar.getYearShengXiao();
 
                 let birthTimeStr = "吉時";
                 if (lTimeInput) {
-                    // 同樣使用自訂函數防錯
                     birthTimeStr = getZhiFromTime(lTimeInput) + '時';
                 }
 
+                // 還原為預設直接取用
                 birthStr = `${birthLunar.getYearInGanZhi()}年${birthLunar.getMonthInChinese()}月${birthLunar.getDayInChinese()}日${birthTimeStr}`;
             } catch (error) {
                 alert("農曆日期轉換錯誤，請檢查輸入的農曆日期是否正確（例如確認該月是否有三十日）。");
@@ -501,7 +490,7 @@
             directionStr = "子南丑北（23:00-03:00）";
         }
 
-        // 3. 七七四十九天計算 (頭七 = 離世日 + 6天)
+        // 3. 七七四十九天計算
         const sevenNames = ['頭七', '二七', '三七', '四七', '五七', '六七', '末七'];
         const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
         let sevensStr = "";
@@ -519,8 +508,8 @@
         sevensStr += `👆🏻以上係新曆，逢星期${xunQiDay}係旬七🙏\n`;
 
         // 4. 生卒日期字串
-        // 將 deathLunar.getTimeZhi() 替換為我們自建的絕對對應函數
         const deathTimeStr = deathTimeInput ? getZhiFromTime(deathTimeInput) + '時' : "";
+        // 還原為預設直接取用
         const deathStr = `${deathLunar.getYearInGanZhi()}年${deathLunar.getMonthInChinese()}月${deathLunar.getDayInChinese()}日${deathTimeStr}`;
 
         // 5. 組合最終文本
