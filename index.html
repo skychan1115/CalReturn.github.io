@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>回魂計算工具</title>
+    <title>回魂及七七計算工具</title>
+    <!-- 引入 Lunar.js 用於農曆與天干地支計算 -->
     <script src="https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.js"></script>
     <style>
         :root {
@@ -135,6 +136,7 @@
 </head>
 <body>
 
+<!-- 密碼鎖畫面 -->
 <div id="loginOverlay">
     <div class="login-box">
         <h3>內部工具登入</h3>
@@ -145,8 +147,9 @@
     </div>
 </div>
 
+<!-- 計算器主體 -->
 <div class="calculator-container" id="mainApp">
-    <h2>傳統回魂計算器</h2>
+    <h2>回魂與七七計算器</h2>
     
     <div class="form-group">
         <label>先人姓名 (含稱謂)：</label>
@@ -200,23 +203,22 @@
 
 <script>
     // ==========================================
-    // 登入驗證邏輯
+    // 登入驗證邏輯 (密碼 8888)
     // ==========================================
     function checkAccess() {
         const code = document.getElementById('accessCode').value;
-        const correctPassword = "8888"; // <-- 這裡可以隨時更改你的專屬密碼
+        const correctPassword = "8888"; 
         
         if (code === correctPassword) {
             document.getElementById('loginOverlay').style.display = 'none';
             document.getElementById('mainApp').style.display = 'block';
-            document.getElementById('accessCode').value = ''; // 清空密碼框
+            document.getElementById('accessCode').value = ''; 
         } else {
             document.getElementById('loginError').style.display = 'block';
             document.getElementById('accessCode').value = '';
         }
     }
 
-    // 支援按 Enter 鍵登入
     document.getElementById("accessCode").addEventListener("keyup", function(event) {
         if (event.key === "Enter") {
             checkAccess();
@@ -226,8 +228,6 @@
     // ==========================================
     // 計算核心邏輯
     // ==========================================
-    
-    // 天干地支對應數值表
     const valueMap = {
         '甲': 9, '己': 9, '子': 9, '午': 9,
         '乙': 8, '庚': 8, '丑': 8, '未': 8,
@@ -293,6 +293,7 @@
         const deathDateObj = new Date(deathDateStr);
         const deathLunar = Lunar.fromDate(deathDateObj);
 
+        // 1. 出生資料處理
         const isOnlyBirthYear = document.getElementById('onlyBirthYear').checked;
         let age, zodiac, birthStr;
 
@@ -329,11 +330,10 @@
             birthStr = `${birthLunar.getYearInGanZhi()}年${birthLunar.getMonthInChinese()}月${birthLunar.getDayInChinese()}日${birthTimeStr}`;
         }
 
-        // 強制繁體生肖
         zodiac = zodiac.replace('龙', '龍').replace('马', '馬').replace('鸡', '雞').replace('猪', '豬');
-
         const sixRealmsStr = calculateSixRealms(gender, age);
 
+        // 2. 回魂日計算
         const deathDayGan = deathLunar.getDayGan();
         const deathDayZhi = deathLunar.getDayZhi();
         const ganValue = valueMap[deathDayGan] || 0;
@@ -353,7 +353,6 @@
         const worshipDateObj = new Date(returnDateObj);
         worshipDateObj.setDate(worshipDateObj.getDate() - 1);
 
-        // 取得回魂日納音五行方位
         const returnDayNaYin = returnLunar.getDayNaYin(); 
         const returnDayWuXing = returnDayNaYin.charAt(returnDayNaYin.length - 1); 
         
@@ -366,9 +365,30 @@
             directionStr = "子南丑北（23:00-03:00）";
         }
 
+        // 3. 七七四十九天計算 (頭七 = 離世日 + 6天)
+        const sevenNames = ['頭七', '二七', '三七', '四七', '五七', '六七', '末七'];
+        const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+        let sevensStr = "";
+        let xunQiDay = "";
+
+        for (let i = 0; i < 7; i++) {
+            // 每次迴圈以離世日為基準重新計算
+            const d = new Date(deathDateObj);
+            d.setDate(d.getDate() + 6 + (i * 7));
+            
+            // 抓取頭七的星期幾作為「旬七」標準
+            if (i === 0) {
+                xunQiDay = weekDays[d.getDay()];
+            }
+            sevensStr += `${sevenNames[i]}：${d.getMonth() + 1}月${d.getDate()}日\n`;
+        }
+        sevensStr += `👆🏻以上係新曆，逢星期${xunQiDay}係旬七🙏\n`;
+
+        // 4. 生卒日期字串
         const deathTimeStr = deathTimeInput ? deathLunar.getTimeZhi() + '時' : "";
         const deathStr = `${deathLunar.getYearInGanZhi()}年${deathLunar.getMonthInChinese()}月${deathLunar.getDayInChinese()}日${deathTimeStr}`;
 
+        // 5. 組合最終文本
         const finalText = 
 `先人名：${name}（${genderStr}）
 藉貫：${origin}
@@ -383,14 +403,15 @@ ${worshipDateObj.getMonth()+1}月${worshipDateObj.getDate()}日晚上
 23:00前拜好回魂祭品拜回魂🙏
 ${directionStr}
 生於：${birthStr}。
-終於：${deathStr}。`;
+終於：${deathStr}。
+
+${sevensStr.trim()}`;
 
         const resultBox = document.getElementById('resultBox');
         resultBox.textContent = finalText;
         resultBox.style.display = 'block';
         document.getElementById('copyBtn').style.display = 'block';
         
-        // 平滑滾動到結果
         setTimeout(() => {
             resultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }, 100);
@@ -401,7 +422,6 @@ ${directionStr}
     // ==========================================
     function copyResult() {
         const text = document.getElementById('resultBox').textContent;
-        // 兼容手機端複製
         const textArea = document.createElement("textarea");
         textArea.value = text;
         document.body.appendChild(textArea);
