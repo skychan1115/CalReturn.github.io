@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <title>回魂及七七計算工具</title>
-    <!-- 引入 Lunar.js 用於農曆與天干地支計算 -->
     <script src="https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.js"></script>
     <style>
         :root {
@@ -137,7 +136,6 @@
 </head>
 <body>
 
-<!-- 密碼鎖畫面 -->
 <div id="loginOverlay">
     <div class="login-box">
         <h3>內部工具登入</h3>
@@ -148,7 +146,6 @@
     </div>
 </div>
 
-<!-- 計算器主體 -->
 <div class="calculator-container" id="mainApp">
     <h2>回魂與七七計算器</h2>
     
@@ -170,7 +167,6 @@
         <input type="text" id="origin" placeholder="例如：廣東 惠東">
     </div>
     
-    <!-- 智能出生日期區塊 -->
     <div class="form-group">
         <label style="display: flex; justify-content: space-between; align-items: center;">
             <span>出生日期與時間：</span>
@@ -181,13 +177,11 @@
             </select>
         </label>
         
-        <!-- 新曆輸入框 -->
         <div id="solarBirthWrapper" style="display: flex; gap: 10px; margin-top: 8px;">
             <input type="date" id="birthDate" style="flex: 2;">
             <input type="time" id="birthTime" style="flex: 1;">
         </div>
 
-        <!-- 農曆輸入框 -->
         <div id="lunarBirthWrapper" style="display: none; flex-direction: column; gap: 10px; margin-top: 8px;">
             <div style="display: flex; gap: 10px;">
                 <input type="number" id="lunarYear" placeholder="農曆年份 (例: 1977)" style="flex: 2;">
@@ -213,13 +207,11 @@
                 </select>
                 <select id="lunarDay" style="flex: 1;">
                     <option value="" disabled selected>日子</option>
-                    <!-- JavaScript 會自動填入初一至三十 -->
-                </select>
+                    </select>
                 <input type="time" id="lunarTime" style="flex: 1;">
             </div>
         </div>
         
-        <!-- 僅知年份輸入框 -->
         <input type="number" id="birthYearOnly" placeholder="請輸入出生年份 (例如：1977)" style="display:none; margin-top: 8px;">
         <div class="time-hint" id="birthTimeHint">＊若不選擇時間，將顯示為「吉時」</div>
     </div>
@@ -323,6 +315,7 @@
         const m = parseInt(parts[1], 10);
         const totalMinutes = h * 60 + m;
 
+        // 以 :59 為時辰分水嶺
         if (totalMinutes >= 1380 || totalMinutes <= 59) return "子";  // 23:00 - 00:59
         if (totalMinutes >= 60 && totalMinutes <= 179) return "丑";   // 01:00 - 02:59
         if (totalMinutes >= 180 && totalMinutes <= 299) return "寅";  // 03:00 - 04:59
@@ -365,12 +358,26 @@
 
         const [dYear, dMonth, dDay] = deathDateInput.split('-');
         let dHours = 0, dMinutes = 0;
+        let isLateNightZiShi = false; // 判斷是否為 23:00 - 23:59 的夜子時
+
         if (deathTimeInput) {
             const timeParts = deathTimeInput.split(':');
             dHours = parseInt(timeParts[0]);
             dMinutes = parseInt(timeParts[1]);
+            // 若為夜子時，標記為需要推延至下一日
+            if (dHours === 23) {
+                isLateNightZiShi = true;
+            }
         }
+        
         const deathDateObj = new Date(dYear, dMonth - 1, dDay, dHours, dMinutes);
+
+        // ★ 核心修改：如果是 23:00 - 23:59，將計算基準日推至隔天 (且設為 00:xx 保持子時)
+        if (isLateNightZiShi) {
+            deathDateObj.setDate(deathDateObj.getDate() + 1);
+            deathDateObj.setHours(dHours - 23); // 23 變為 0，確保它不跨到另一天
+        }
+
         const deathLunar = Lunar.fromDate(deathDateObj);
 
         // 1. 出生資料處理
@@ -386,9 +393,8 @@
             const bYear = parseInt(birthYearInput);
             
             const dummyLunar = Lunar.fromDate(new Date(bYear, 5, 15));
-            // ★ 修正：使用農曆年份計算虛歲，解決新年前後的歲數誤差
+            // 採用農曆年份計算虛歲
             age = deathLunar.getYear() - dummyLunar.getYear() + 1;
-            
             zodiac = dummyLunar.getYearShengXiao();
             birthStr = `${dummyLunar.getYearInGanZhi()}年（詳細月日時辰不詳）`;
             
@@ -411,12 +417,11 @@
             const birthDateObj = new Date(bYear, bMonth - 1, bDay, bHours, bMinutes);
             const birthLunar = Lunar.fromDate(birthDateObj);
             
-            // ★ 修正：使用農曆年份計算虛歲，解決新年前後的歲數誤差
+            // 採用農曆年份計算虛歲
             age = deathLunar.getYear() - birthLunar.getYear() + 1;
             zodiac = birthLunar.getYearShengXiao();
             
             const birthTimeStr = birthTimeInput ? getZhiFromTime(birthTimeInput) + '時' : "吉時";
-            // 還原為預設直接取用
             birthStr = `${birthLunar.getYearInGanZhi()}年${birthLunar.getMonthInChinese()}月${birthLunar.getDayInChinese()}日${birthTimeStr}`;
             
         } else if (birthDateType === 'lunar') {
@@ -438,7 +443,7 @@
 
             try {
                 const birthLunar = Lunar.fromYmd(y, m, d);
-                // ★ 修正：使用農曆年份計算虛歲，解決新年前後的歲數誤差
+                // 採用農曆年份計算虛歲
                 age = deathLunar.getYear() - birthLunar.getYear() + 1;
                 zodiac = birthLunar.getYearShengXiao();
 
@@ -447,7 +452,6 @@
                     birthTimeStr = getZhiFromTime(lTimeInput) + '時';
                 }
 
-                // 還原為預設直接取用
                 birthStr = `${birthLunar.getYearInGanZhi()}年${birthLunar.getMonthInChinese()}月${birthLunar.getDayInChinese()}日${birthTimeStr}`;
             } catch (error) {
                 alert("農曆日期轉換錯誤，請檢查輸入的農曆日期是否正確（例如確認該月是否有三十日）。");
@@ -508,8 +512,8 @@
         sevensStr += `👆🏻以上係新曆，逢星期${xunQiDay}係旬七🙏\n`;
 
         // 4. 生卒日期字串
+        // 這裡依然使用使用者原始輸入的 deathTimeInput 查表，確保 23:30 也會顯示「子時」
         const deathTimeStr = deathTimeInput ? getZhiFromTime(deathTimeInput) + '時' : "";
-        // 還原為預設直接取用
         const deathStr = `${deathLunar.getYearInGanZhi()}年${deathLunar.getMonthInChinese()}月${deathLunar.getDayInChinese()}日${deathTimeStr}`;
 
         // 5. 組合最終文本
